@@ -242,8 +242,8 @@ class Connect(object):
 
                 conn = Finite_difference(N = self.N, length_comp = self.length_comp,
                                cross_plus_boundary = self.cross_plus_boundary, volume = self.volume,
-                               end_condition = end_condition,
-                               start_comp = start_comp, end_comp = self.end_comp)
+                               end_condition = self.end_condition,
+                               start_comp = self.start_comp, end_comp = self.end_comp)
                 conn.connectivity_matrix_branch()
                 self.conn_matrix = conn.conn_matrix
 
