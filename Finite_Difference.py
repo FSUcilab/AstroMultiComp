@@ -1,4 +1,3 @@
-#from Astro_morphology import Astrocyte_morphology
 from Parameters import p
 
 import numpy as np
@@ -24,22 +23,6 @@ class Finite_difference(object):
             self.end_comp = end_comp
 
         self.end_condition = end_condition
-        #if self.end_condition == 'open_end':
-             #self.N_max = self.N
-             #self.N = self.N - 2
-
-            # #volume for end compartments
-            # vol = np.zeros(len(self.volume)+2)
-            # vol[1:-1] = self.volume
-            # vol[0] = self.volume[0]
-            # vol[-1] = self.volume[-1]
-            # self.volume = vol
-            #
-            # cross = np.zeros(len(self.cross_plus_boundary)+2)
-            # cross[1:-1] = self.cross_plus_boundary
-            # cross[0] = self.cross_plus_boundary[0]
-            # cross[-1] = self.cross_plus_boundary[-1]
-            # self.cross_plus_boundary = cross
 
         self.diffusion_coeff_scaled_right = self.volume/self.cross_plus_boundary[1:]
         self.diffusion_coeff_scaled_left = self.volume/self.cross_plus_boundary[:-1]

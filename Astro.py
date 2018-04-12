@@ -2,7 +2,6 @@ import numpy as np
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
-from Astro_morphology import Astrocyte_morphology
 from Astro_morphology import Process
 from Astro_morphology import Connect
 from Init import Init
@@ -12,6 +11,23 @@ from Finite_Difference import Finite_difference
 class Astro_multi_compartment(object):
 
     def __init__(self, params, model_type, stimulus, morpho):
+
+        '''
+        Simulation of an astrocytic subcellular compartment consisting of a multi-compartment model
+        ----------
+        params :
+            Dictionary with parameters.
+        model_type:
+            Specifies the considered currents of the model.
+            NKV: Membrane currents affecting the concentrations of Na+ and K+ and
+                the membrane voltage.
+            Calcium: Ca2+ currents at the internal Ca2+ store.
+            NKV_Calcium: All currents affecting the concentration of Na+, Ca2+, K+ and the membrane voltage.
+        stimulus:
+            Matrix containing the concentration on the stimulus in space and time.
+        morpho:
+            Object produced by the Astro_morphology class.
+        '''
 
         # converts dict with parameters to variables
         self.__dict__.update(params)
@@ -162,11 +178,8 @@ class Astro_multi_compartment(object):
         elif tspan >= self.time:
             self.glut_input = self.stimulus[:,-1]
 
-        # if self.end_condition == 'open_end':
-        #     self.SVR = self.SVR[1:-1]
-        #     self.glut_input = self.glut_input[1:-1]
-
-        self.O_m = self.SVR * self.a_i#a_i/(5.00 * 1e-8) # meter, Astrocytic membrane area per tissue volume
+        # Astrocytic membrane area per tissue volume
+        self.O_m = self.SVR * self.a_i
 
         # membrane potential
         X_oZ_o = -((self.O_m*self.C_m*self.V_0)/(self.a_o)) - self.F*(self.z_K*self.K_o_0 + self.z_Na*self.Na_o_0 + self.z_C*self.C_o_0)
@@ -185,8 +198,6 @@ class Astro_multi_compartment(object):
         J_K_m = (IKleak - (2.*INKA) + (1.*IGluT/self.F))
         J_Na_m = (INleak + (3.*INKA) - (3.*IGluT/self.F) + (3.*INCX/self.F))
 
-        J_V = (2*IGluT - INKA*self.F - INCX - INleak * self.F - IKleak*self.F)
-
         if self.end_condition == 'open_end':
             C = self.open_end(C, self.C_0)
             Co = self.open_end(Co, self.C_o_0)
@@ -202,7 +213,6 @@ class Astro_multi_compartment(object):
         J_NaiD = self.conn_matrix.dot(-(self.D_Na/(self.lamb_intra**2)) * Na)
         J_KoD = self.conn_matrix.dot(-(self.D_K/(self.lamb_extra**2)) * Ko)
         J_NaoD = self.conn_matrix.dot(-(self.D_Na/(self.lamb_extra**2)) * Nao)
-        #J_VD = self.conn_matrix.dot(-((1.)/(self.rL * self.length_comp**2)) * V)
 
         #define differential equations
         dKdt = -(self.O_m/self.a_i)*(J_K_m) - J_KiD
@@ -211,7 +221,6 @@ class Astro_multi_compartment(object):
         dNaodt = (self.O_m/self.a_o)*(J_Na_m) - J_NaoD
         dCdt = -(self.O_m/self.a_i) * J_Ca_m - J_CiD
         dCodt = (self.O_m/self.a_o) * J_Ca_m - J_CoD
-        #dVdt = (1./self.C_m)*(J_V)# - J_VD)
 
 
         return np.hstack((dNadt, dKdt, dCdt, dNaodt, dKodt, dCodt))
@@ -225,35 +234,8 @@ class Astro_multi_compartment(object):
         h = state[2*self.N:3*self.N]
         CER = state[3*self.N:4*self.N]
 
-        self.O_m = self.SVR * self.a_i#a_i/(5.00 * 1e-8) # meter, Astrocytic membrane area per tissue volume
-
-
-        #CER = (self.Ctot_0 - C)*(self.ratio_inv)
-
-        # # finite difference method for calculation of pde: matrix for first derivative
-        # I_1a = np.zeros((self.N,self.N))
-        # for i in range(0,len(I_1a)-1):
-        #     I_1a[i,i] = -1.
-        #     I_1a[i,i+1] = 1.
-        # I_1a /= (self.h)
-        # I_1a[-1,-1] = -1./(-self.h)
-        # I_1a[-1,-2] = 1./(-self.h)
-        #
-        # I_1b = np.zeros((self.N,self.N))
-        # for i in range(0,len(I_1b)-1):
-        #     I_1b[i,i] = -1.
-        #     I_1b[i,i-1] = 1.
-        # I_1b /= (-self.h)
-        # I_1b[0,0] = -1./(self.h)
-        # I_1b[0,1] = 1./(self.h)
-        # I_1b[-1,-1] = -1./(-self.h)
-        # I_1b[-1,-2] = 1./(-self.h)
-
-        # membrane potential
-        #X_oZ_o = -((self.O_m*self.C_m*self.V_0)/(self.a_o)) - self.F*(self.z_K*self.K_o_0 + self.z_Na*self.Na_o_0 + self.z_C*self.C_o_0)
-        #V = -((self.a_o)/(self.C_m * self.O_m))*((self.F*(self.z_K * Ko + self.z_Na * Nao + self.z_C * Co)) + X_oZ_o)
-        #X_oZ_o = -((self.O_m*self.C_m*self.V_0)/(self.a_o)) - self.F*(self.K_o_0 + self.Na_o_0)
-        #V = -((self.a_o)/(self.C_m * self.O_m))*((self.F*(Ko + Nao)) + X_oZ_o)
+        # Astrocytic membrane area per tissue volume
+        self.O_m = self.SVR * self.a_i
 
         # input
         if tspan < self.time:
@@ -287,41 +269,22 @@ class Astro_multi_compartment(object):
         # transmembrane flux densities
         J_CER_m = (- ISerca  + ICERleak + IIP3R)
 
+        if self.end_condition == 'open_end':
+            C = self.open_end(C, self.C_0)
+            CER = self.open_end(CER, self.C_ER_0)
+            IP3 = self.open_end(IP3, self.IP3_0)
+
         # diffusive flux
         J_CiD = self.conn_matrix.dot(-(self.D_C/(self.lamb_intra**2)) * C)
         J_CERiD = self.conn_matrix.dot(-(self.D_C/(self.lamb_intra**2)) * CER)
         J_IP3iD = self.conn_matrix.dot(-(self.D_IP3/(self.lamb_intra**2)) * IP3)
-        # J_CD = -(self.D_C/(self.lamb_intra**2)) * I_1a.dot(C)
-        # J_CERD = -(self.D_C/(self.lamb_intra**2)) * I_1a.dot(CER)
-        # J_IP3D = -(self.D_IP3/(self.lamb_extra**2)) * I_1a.dot(IP3)
 
-        # #axial flux densities
-        # J_C = J_CD
-        # J_CER = J_CERD
-        # J_IP3 = J_IP3D
-        #
-        # # set boundary conditions
-        # J_C[0] = J_C[-1] = 0.
-        # J_CER[0] = J_CER[-1] = 0.
-        # J_IP3[0] = J_IP3[-1] = 0.
-
-        #define differential equations
-        # dKdt = -(self.O_m/self.a_i)*(J_K_m) - I_1b.dot(J_Ki)
-        # dNadt = -(self.O_m/self.a_i)*(J_Na_m) - I_1b.dot(J_Nai)
-        # dKodt = (self.O_m/self.a_o)*(J_K_m) - I_1b.dot(J_Ko)
-        # dNaodt = (self.O_m/self.a_o)*(J_Na_m) - I_1b.dot(J_Nao)
-        # dCdt = -(self.O_m/self.a_i) * J_Ca_m - I_1b.dot(J_Ci)
-        # dCodt = (self.O_m/self.a_o) * J_Ca_m - I_1b.dot(J_Co)
-        #dCdt = ((self.SVR*np.sqrt(self.ratio))/(self.F)) * J_CER_m - I_1b.dot(J_C)
-        #dIP3dt = prod_degr_IP3 - I_1b.dot(J_IP3)
-        #dCERdt = ((self.SVR*np.sqrt(self.ratio))/(self.F*self.ratio)) * (-J_CER_m) - I_1b.dot(J_CER)
 
         dCdt = ((self.SVR*np.sqrt(self.ratio))/(self.F)) * J_CER_m - J_CiD
         dIP3dt = prod_degr_IP3 - J_IP3iD
         dCERdt = ((self.SVR*np.sqrt(self.ratio))/(self.F*self.ratio)) * (-J_CER_m) - J_CERiD
 
-        #return np.hstack((dNadt, dKdt, dNaodt, dKodt))
-        return np.hstack((dCdt, dIP3dt, dhdt, dCERdt))#, dVdt))
+        return np.hstack((dCdt, dIP3dt, dhdt, dCERdt))
 
     def spatial_astro_NKV_Ca(self, state, tspan):
 
@@ -338,33 +301,12 @@ class Astro_multi_compartment(object):
         Ko = state[7*self.N:8*self.N]
         Co = state[8*self.N:9*self.N]
 
-        self.O_m = self.SVR * self.a_i#a_i/(5.00 * 1e-8) # meter, Astrocytic membrane area per tissue volume
-
-
-        # # finite difference method for calculation of pde: matrix for first derivative
-        # self.I_1a = np.zeros((self.N,self.N))
-        # for i in range(0,len(self.I_1a)-1):
-        #     self.I_1a[i,i] = -1.
-        #     self.I_1a[i,i+1] = 1.
-        # self.I_1a[-1,-1] = 1.
-        # self.I_1a[-1,-2] = -1.
-        # self.I_1a /= self.h
-        #
-        # self.I_1b = np.zeros((self.N,self.N))
-        # for i in range(0,len(self.I_1b)-1):
-        #     self.I_1b[i,i] = 1.
-        #     self.I_1b[i,i-1] = -1.
-        # self.I_1b[0,0] = -1.
-        # self.I_1b[0,1] = 1.
-        # self.I_1b[-1,-1] = 1.
-        # self.I_1b[-1,-2] = -1.
-        # self.I_1b /= self.h
+        # Astrocytic membrane area per tissue volume
+        self.O_m = self.SVR * self.a_i
 
         # membrane potential
         X_oZ_o = -((self.O_m*self.C_m*self.V_0)/(self.a_o)) - self.F*(self.z_K*self.K_o_0 + self.z_Na*self.Na_o_0 + self.z_C*self.C_o_0)
         V = -((self.a_o)/(self.C_m * self.O_m))*((self.F*(self.z_K * Ko + self.z_Na * Nao + self.z_C * Co)) + X_oZ_o)
-        #X_oZ_o = -((self.O_m*self.C_m*self.V_0)/(self.a_o)) - self.F*(self.K_o_0 + self.Na_o_0)
-        #V = -((self.a_o)/(self.C_m * self.O_m))*((self.F*(Ko + Nao)) + X_oZ_o)
 
         # input
         if tspan < self.time:
@@ -410,17 +352,15 @@ class Astro_multi_compartment(object):
         J_Ca_m = (-1.*INCX)/(self.F)
         J_CER_m = (- ISerca  + ICERleak + IIP3R)
 
-        # # diffusive flux
-        # J_NaiD = -(self.D_Na/(self.lamb_intra**2)) * self.I_1a.dot(Na)
-        # J_KiD = -(self.D_K/(self.lamb_intra**2)) * self.I_1a.dot(K)
-        # J_CiD = -(self.D_C/(self.lamb_intra**2)) * self.I_1a.dot(C)
-        #
-        # J_CERD = -(self.D_C/(self.lamb_intra**2)) * self.I_1a.dot(CER)
-        # J_IP3D = -(self.D_IP3/(self.lamb_extra**2)) * self.I_1a.dot(IP3)
-        #
-        # J_NaoD = -(self.D_Na/(self.lamb_extra**2)) * self.I_1a.dot(Nao)
-        # J_KoD = -(self.D_K/(self.lamb_extra**2)) * self.I_1a.dot(Ko)
-        # J_CoD = -(self.D_C/(self.lamb_extra**2)) * self.I_1a.dot(Co)
+        if self.end_condition == 'open_end':
+            C = self.open_end(C, self.C_0)
+            Co = self.open_end(Co, self.C_o_0)
+            K = self.open_end(K, self.K_0)
+            Ko = self.open_end(Ko, self.K_o_0)
+            Na = self.open_end(Na, self.Na_0)
+            Nao = self.open_end(Nao, self.Na_o_0)
+            CER = self.open_end(CER, self.C_ER_0)
+            IP3 = self.open_end(IP3, self.IP3_0)
 
         # diffusive flux
         J_CiD = self.conn_matrix.dot(-(self.D_C/(self.lamb_intra**2)) * C)
@@ -432,76 +372,6 @@ class Astro_multi_compartment(object):
         J_CERiD = self.conn_matrix.dot(-(self.D_C/(self.lamb_intra**2)) * CER)
         J_IP3iD = self.conn_matrix.dot(-(self.D_IP3/(self.lamb_intra**2)) * IP3)
 
-
-
-
-        # # intra- and extracellular resistivity
-        # r_o = (self.psifac*(self.lamb_extra**2))/(self.F*(self.D_Na*(self.z_Na**2)*Nao+self.D_K*(self.z_K**2)*Ko+self.D_C*(self.z_C**2)*Co))
-        # r_i = (self.psifac*(self.lamb_intra**2))/(self.F*(self.D_Na*(self.z_Na**2)*Na+self.D_K*(self.z_K**2)*K+self.D_C*(self.z_C**2)*C))
-        # #r_o = (self.psifac*(self.lamb_extra**2))/(self.F*(self.D_Na*Nao+self.D_K*Ko))
-        # #r_i = (self.psifac*(self.lamb_intra**2))/(self.F*(self.D_Na*Na+self.D_K*K))
-        #
-        # # current densities due to diffusion
-        # #i_odiff = self.F*(self.z_K*J_KoD + self.z_Na*J_NaoD)
-        # #i_idiff = self.F*(self.z_K*J_KiD + self.z_Na*J_NaiD)
-        # i_odiff = self.F*(self.z_K*J_KoD + self.z_Na*J_NaoD + self.z_C*J_CoD)
-        # i_idiff = self.F*(self.z_K*J_KiD + self.z_Na*J_NaiD + self.z_C*J_CiD)
-        #
-        # # calculate intra- and extracellular membrane voltage
-        # dVidx = (self.I_1a.dot(V) + ((r_o*self.a_i*i_idiff)/self.a_o) + (r_o*i_odiff))*((1. + ((r_o*self.a_i)/(r_i*self.a_o)))**-1)
-        # dVodx = (-self.I_1a.dot(V) + ((r_i*self.a_o*i_odiff)/self.a_i) + (r_i*i_idiff))*((1. + ((r_i*self.a_o)/(r_o*self.a_i)))**-1)
-        #
-        # # field flux
-        # J_KiV = -((self.D_K*self.z_K)/((self.lamb_intra**2) * self.psifac)) * (K*dVidx)
-        # J_NaiV = -((self.D_Na*self.z_Na)/((self.lamb_intra**2) * self.psifac)) * (Na*dVidx)
-        # J_KoV = -((self.D_K*self.z_K)/((self.lamb_extra**2) * self.psifac)) * (Ko*dVodx)
-        # J_NaoV = -((self.D_Na*self.z_Na)/((self.lamb_extra**2) * self.psifac)) * (Nao*dVodx)
-        # J_CiV = -((self.D_C*self.z_C)/((self.lamb_intra**2) * self.psifac)) * (C*dVidx)
-        # J_CoV = -((self.D_C*self.z_C)/((self.lamb_extra**2) * self.psifac)) * (Co*dVodx)
-
-        # #axial flux densities
-        # J_Nai = J_NaiD #+ J_NaiV
-        # J_Ki = J_KiD #+ J_KiV
-        # J_Ci = J_CiD #+ J_CiV
-        #
-        # J_IP3 = J_IP3D
-        # J_CER = J_CERD
-        #
-        # J_Nao = J_NaoD #+ J_NaoV
-        # J_Ko = J_KoD #+ J_KoV
-        # J_Co = J_CoD #+ J_CoV
-        #
-        # # set boundary conditions: sealed end
-        # J_Nai[0] = J_Nai[-1] = 0.
-        # J_Ki[0] = J_Ki[-1] = 0.
-        # J_Ci[0] = J_Ci[-1] = 0.
-        #
-        # J_IP3[0] = J_IP3[-1] = 0.
-        # J_CER[0] = J_CER[-1] = 0.
-        #
-        # J_Nao[0] = J_Nao[-1] = 0.
-        # J_Ko[0] = J_Ko[-1] = 0.
-        # J_Co[0] = J_Co[-1] = 0.
-
-        # external bath
-        #bath_K = - self.k_dec*(Ko - self.K_o_0)
-        #bath_Na = - self.k_dec*(Nao - self.Na_o_0)
-
-        # input
-        #self.Imax = self.input(tspan)
-
-        # #define differential equations
-        # dNadt = -(self.O_m/self.a_i)*(J_Na_m) - self.I_1b.dot(J_Nai)
-        # dKdt = -(self.O_m/self.a_i)*(J_K_m) - self.I_1b.dot(J_Ki)
-        # dCdt = -(self.O_m/self.a_i) * J_Ca_m + ((self.SVR*np.sqrt(self.ratio))/(self.F)) * J_CER_m - self.I_1b.dot(J_Ci)
-        #
-        # dIP3dt = prod_degr_IP3 - self.I_1b.dot(J_IP3)
-        # dCERdt = ((self.SVR*np.sqrt(self.ratio))/(self.F*self.ratio)) * (-J_CER_m) - self.I_1b.dot(J_CER)
-        #
-        # dNaodt = (self.O_m/self.a_o)*(J_Na_m) - self.I_1b.dot(J_Nao)
-        # dKodt = (self.O_m/self.a_o)*(J_K_m) - self.I_1b.dot(J_Ko)
-        # dCodt = (self.O_m/self.a_o) * J_Ca_m - self.I_1b.dot(J_Co)
-
         #define differential equations
         dKdt = -(self.O_m/self.a_i)*(J_K_m) - J_KiD
         dNadt = -(self.O_m/self.a_i)*(J_Na_m) - J_NaiD
@@ -512,7 +382,6 @@ class Astro_multi_compartment(object):
         dIP3dt = prod_degr_IP3 - J_IP3iD
         dCERdt = ((self.SVR*np.sqrt(self.ratio))/(self.F*self.ratio)) * (-J_CER_m) - J_CERiD
 
-        #return np.hstack((dNadt, dKdt, dNaodt, dKodt))
-        return np.hstack((dNadt, dKdt, dCdt, dIP3dt, dhdt, dCERdt, dNaodt, dKodt, dCodt))#, dVdt))
+        return np.hstack((dNadt, dKdt, dCdt, dIP3dt, dhdt, dCERdt, dNaodt, dKodt, dCodt))
 
 
