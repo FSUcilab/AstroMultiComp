@@ -10,7 +10,7 @@ from Finite_Difference import Finite_difference
 
 class Astro_multi_compartment(object):
 
-    def __init__(self, params, model_type, stimulus, morpho):
+    def __init__(self, params, model_type, stimulus, morpho, diff_range = None):
 
         '''
         Simulation of an astrocytic subcellular compartment consisting of a multi-compartment model
@@ -58,6 +58,10 @@ class Astro_multi_compartment(object):
         # set stimulus duration and length of input zone
         self.comp_start = int(self.N * 0.49)
         self.comp_end = int(self.N * 0.51)
+
+        # parameters for diff_range
+        if diff_range is not None:
+            self.d_cond, self.d_start, self.d_end, self.d_coeff = ['step', 70, 79, self.D_C*0.1]
 
         if self.model_type == 'NKV':
 
@@ -137,6 +141,8 @@ class Astro_multi_compartment(object):
             init = np.hstack((init_Na, init_K, init_C, init_IP3, init_h, init_CER,
                               init_Na_o, init_K_o, init_C_o))
 
+            self.diffusion_range(condition=self.d_cond, start = self.d_start, end = self.d_end, d_coeff=self.d_coeff)
+
             # simulate spatial astro
             self.sol = odeint(self.spatial_astro_NKV_Ca, init, self.tspan, tcrit=[self.tstart, self.tstop])
 
@@ -160,6 +166,12 @@ class Astro_multi_compartment(object):
         tmp[0] = tmp[-1] = init_conc
         return tmp
 
+    def diffusion_range(self, condition = 'equal', start = None, end = None, d_coeff = None):
+        if condition == 'equal':
+            self.D_Ci = self.D_C
+        elif condition == 'step':
+            self.D_Ci = self.D_C * np.ones(self.N)
+            self.D_Ci[start:end] = d_coeff
 
     def spatial_astro_NKV(self, state, tspan):
 
@@ -345,7 +357,6 @@ class Astro_multi_compartment(object):
         tau_h = 1 / (self.a2 * (Q_2 + C))
         dhdt = (h_infty - h) / tau_h
 
-
         # transmembrane flux densities
         J_Na_m = (((self.gN) * (V - E_Na)) + (3.*INKA) - (3.*IGluT/self.F) + (3.*INCX/self.F))
         J_K_m = (((self.gK) * (V - E_K)) - (2.*INKA) + (1.*IGluT/self.F))
@@ -363,7 +374,7 @@ class Astro_multi_compartment(object):
             IP3 = self.open_end(IP3, self.IP3_0)
 
         # diffusive flux
-        J_CiD = self.conn_matrix.dot(-(self.D_C/(self.lamb_intra**2)) * C)
+        J_CiD = self.conn_matrix.dot(-(self.D_Ci/(self.lamb_intra**2)) * C)
         J_CoD = self.conn_matrix.dot(-(self.D_C/(self.lamb_extra**2)) * Co)
         J_KiD = self.conn_matrix.dot(-(self.D_K/(self.lamb_intra**2)) * K)
         J_NaiD = self.conn_matrix.dot(-(self.D_Na/(self.lamb_intra**2)) * Na)
